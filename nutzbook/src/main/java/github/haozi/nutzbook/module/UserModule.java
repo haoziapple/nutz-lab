@@ -10,6 +10,7 @@ import org.nutz.ioc.loader.annotation.IocBean;
 import org.nutz.lang.Strings;
 import org.nutz.lang.util.NutMap;
 import org.nutz.mvc.annotation.*;
+import org.nutz.mvc.filter.CheckSession;
 
 import javax.servlet.http.HttpSession;
 import java.util.Date;
@@ -21,8 +22,10 @@ import java.util.Date;
  */
 @IocBean
 @At("/user")
-@Ok("json")
+//@Ok("json")
+@Ok("json:{locked:'password|salt',ignoreNull:true}")
 @Fail("http:500")
+@Filters(@By(type = CheckSession.class, args = {"me", "/"}))
 public class UserModule {
     @Inject
     protected Dao dao;
@@ -33,6 +36,7 @@ public class UserModule {
     }
 
     @At
+    @Filters()
     public Object login(@Param("username") String name, @Param("password") String password, HttpSession session) {
         User user = dao.fetch(User.class, Cnd.where("name", "=", name).and("password", "=", password));
         if (user == null) {
@@ -49,6 +53,12 @@ public class UserModule {
         session.invalidate();
     }
 
+    /**
+     * http://127.0.0.1:8080/user/add?name=wendal&password=123456
+     *
+     * @param user
+     * @return
+     */
     @At
     public Object add(@Param("..") User user) {
         NutMap re = new NutMap();
@@ -62,6 +72,12 @@ public class UserModule {
         return re.setv("ok", true).setv("data", user);
     }
 
+    /**
+     * http://127.0.0.1:8080/user/update?id=2&password=654321
+     *
+     * @param user
+     * @return
+     */
     @At
     public Object update(@Param("..") User user) {
         NutMap re = new NutMap();
@@ -86,6 +102,13 @@ public class UserModule {
         return new NutMap().setv("ok", true);
     }
 
+    /**
+     * http://127.0.0.1:8080/user/query?pageNumber=1&pageSize=1&name=wendal
+     *
+     * @param name
+     * @param pager
+     * @return
+     */
     @At
     public Object query(@Param("name") String name, @Param("..") Pager pager) {
         Cnd cnd = Strings.isBlank(name) ? null : Cnd.where("name", "like", "%" + name + "%");
@@ -94,6 +117,11 @@ public class UserModule {
         pager.setRecordCount(dao.count(User.class, cnd));
         qr.setPager(pager);
         return qr; //默认分页是第1页,每页20条
+    }
+
+    @At("/")
+    @Ok("jsp:jsp.user.list") // 真实路径是 /WEB-INF/jsp/user/list.jsp
+    public void index() {
     }
 
     protected String checkUser(User user, boolean create) {
